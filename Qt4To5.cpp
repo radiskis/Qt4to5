@@ -41,16 +41,16 @@
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/system_error.h"
+#include <system_error>
 
 #include <iostream>
 
+using std::error_code;
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace llvm;
@@ -674,7 +674,7 @@ int portEnum(const CompilationDatabase &Compilations)
 int main(int argc, char **argv) {
   cl::ParseCommandLineOptions(argc, argv);
   std::string ErrorMessage;
-  llvm::OwningPtr<CompilationDatabase> Compilations(
+  std::unique_ptr<CompilationDatabase> Compilations(
     CompilationDatabase::loadFromDirectory(BuildPath, ErrorMessage));
 
 
