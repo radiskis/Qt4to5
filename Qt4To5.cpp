@@ -205,8 +205,8 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tool
 
   SourceLocation EndOfLine = StartOfLine.getLocWithOffset(eol);
 
-  Replace->insert(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
-  Replace->insert(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
+  Replace->add(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
+  Replace->add(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
 }
 
 #define QStringClassName "QString"
@@ -238,7 +238,7 @@ class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
     const std::string output = (CTor || O) ? QStringClassName "(" + ArgText + ").toHtmlEscaped()"
                                : ArgText + ".toHtmlEscaped()";
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, output));
+    Replace->add(Replacement(*Result.SourceManager, Call, output));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
@@ -267,7 +267,7 @@ class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(target), target.size(), replacement);
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText));
+    Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
@@ -290,7 +290,7 @@ class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
 
     if (ArgText.empty()) return;
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
+    Replace->add(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
@@ -315,7 +315,7 @@ class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, Rename_New));
+    Replace->add(Replacement(*Result.SourceManager, Call, Rename_New));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
@@ -357,7 +357,7 @@ class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
     if (!F->isThisDeclarationADefinition() || F->hasInlineBody())
       NewArg += " = QVector<int>()";
 
-    Replace->insert(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
+    Replace->add(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, P, Replace);
@@ -407,7 +407,7 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText));
+    Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
   }
 
  private:
@@ -461,7 +461,7 @@ class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
     CharSourceRange range;
     range.setBegin(StartSpellingLocation);
     range.setEnd(EndSpellingLocation);
-    Replace->insert(Replacement(*Result.SourceManager, range, ""));
+    Replace->add(Replacement(*Result.SourceManager, range, ""));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
