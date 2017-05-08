@@ -221,13 +221,13 @@ class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const Expr *CTor =
-        Result.Nodes.getStmtAs<Expr>("ctor");
+        Result.Nodes.getNodeAs<Expr>("ctor");
     const Expr *E =
-        Result.Nodes.getStmtAs<Expr>("expr");
+        Result.Nodes.getNodeAs<Expr>("expr");
     const Expr *O =
-        Result.Nodes.getStmtAs<Expr>("operator");
+        Result.Nodes.getNodeAs<Expr>("operator");
 
     const std::string ArgText = CTor ? getText(*Result.SourceManager, *CTor)
                                  : E ? getText(*Result.SourceManager, *E)
@@ -255,7 +255,7 @@ class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const Expr *Call =
-        Result.Nodes.getStmtAs<Expr>("call");
+        Result.Nodes.getNodeAs<Expr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
@@ -284,7 +284,7 @@ class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
@@ -307,7 +307,7 @@ class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const DeclRefExpr *Call =
-        Result.Nodes.getStmtAs<DeclRefExpr>("call");
+        Result.Nodes.getNodeAs<DeclRefExpr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
@@ -374,13 +374,13 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const MemberExpr *E =
-        Result.Nodes.getStmtAs<MemberExpr>("expr");
+        Result.Nodes.getNodeAs<MemberExpr>("expr");
     const MemberExpr *Exact =
-        Result.Nodes.getStmtAs<MemberExpr>("exact");
+        Result.Nodes.getNodeAs<MemberExpr>("exact");
     const Expr *Func =
-        Result.Nodes.getStmtAs<Expr>("func");
+        Result.Nodes.getNodeAs<Expr>("func");
 
     bool overriddenVirtual = false;
     if (!Exact && !Func) {
@@ -421,11 +421,11 @@ class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const Expr *Key =
-        Result.Nodes.getStmtAs<Expr>("prevArg");
+        Result.Nodes.getNodeAs<Expr>("prevArg");
     const Expr *Lang =
-        Result.Nodes.getStmtAs<Expr>("arg");
+        Result.Nodes.getNodeAs<Expr>("arg");
 
     SourceLocation StartSpellingLocation =
         Result.SourceManager->getSpellingLoc(Key->getLocEnd());
