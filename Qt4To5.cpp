@@ -333,7 +333,7 @@ class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
 
     const CXXMethodDecl *F =
-        Result.Nodes.getDeclAs<CXXMethodDecl>("funcDecl");
+        Result.Nodes.getNodeAs<CXXMethodDecl>("funcDecl");
 
     SourceLocation StartSpellingLocation =
         Result.SourceManager->getSpellingLoc(F->getLocStart());
