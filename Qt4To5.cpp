@@ -488,15 +488,15 @@ int portMethod(const CompilationDatabase &Compilations)
         call(
           anyOf(
             allOf(
-              callee(function(hasName(matchName))),
-              callee(id("exact", memberExpression()))
+              callee(functionDecl(hasName(matchName))),
+              callee(id("exact", memberExpr()))
             ),
             allOf(
-              callee(function(hasName(Rename_Old))),
-              callee(id("expr", memberExpression()))
+              callee(functionDecl(hasName(Rename_Old))),
+              callee(id("expr", memberExpr()))
             ),
             allOf(
-              callee(function(hasName(matchName))),
+              callee(functionDecl(hasName(matchName))),
               callee(id("func", expression()))
             )
           )
@@ -521,12 +521,12 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
           id("call",
             call(
               callee(
-                memberExpression()
+                memberExpr()
               )
             )
           )
         ),
-        has(call(callee(function(hasName("::QMetaMethod::signature")))))
+        has(call(callee(functionDecl(hasName("::QMetaMethod::signature")))))
       ),
       expression(unless(clang::ast_matchers::binaryOperator()))
       )
@@ -546,7 +546,7 @@ int portQtEscape(const CompilationDatabase &Compilations)
   Finder.addMatcher(
     id("call",
       call(
-        callee(function(hasName(QtEscapeFunction))),
+        callee(functionDecl(hasName(QtEscapeFunction))),
         hasArgument(
           0,
           anyOf(
@@ -575,7 +575,7 @@ int portAtomics(const CompilationDatabase &Compilations)
   Finder.addMatcher(
       id("call",
         call(
-          callee(function(hasName("::QBasicAtomicInt::operator int")))
+          callee(functionDecl(hasName("::QBasicAtomicInt::operator int")))
         )
       ), &AtomicCallback);
 
@@ -593,7 +593,7 @@ int portQImageText(const CompilationDatabase &Compilations)
   Finder.addMatcher(
       id("call",
         call(
-          callee(function(hasName("::QImage::text"))),
+          callee(functionDecl(hasName("::QImage::text"))),
           hasArgument(
             0,
             id("prevArg", expression())
@@ -608,7 +608,7 @@ int portQImageText(const CompilationDatabase &Compilations)
   Finder.addMatcher(
       id("call",
         call(
-          callee(function(hasName("::QImage::setText"))),
+          callee(functionDecl(hasName("::QImage::setText"))),
           hasArgument(
             0,
             id("prevArg", expression())
