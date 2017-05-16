@@ -50,12 +50,15 @@
 
 #include <iostream>
 
+#include "Utils.h"
+
 using std::error_code;
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace llvm;
 using clang::tooling::newFrontendActionFactory;
 using clang::tooling::Replacement;
+using clang::tooling::Replacements;
 using clang::tooling::CompilationDatabase;
 
 cl::opt<std::string> SourceDir(
@@ -162,7 +165,7 @@ static std::string getText(const SourceManager &SourceManager, const T &Node) {
 }
 
 template <typename T>
-void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tooling::Replacements *Replace)
+void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, Replacements *Replace)
 {
   SourceLocation StartSpellingLocation =
       SourceManager->getSpellingLoc(Node->getLocStart());
@@ -216,7 +219,7 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tool
 namespace {
 class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortQtEscape4To5(tooling::Replacements *Replace)
+  PortQtEscape4To5(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -245,12 +248,12 @@ class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
   }
 
  private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 
 class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortMetaMethods(tooling::Replacements *Replace)
+  PortMetaMethods(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -274,12 +277,12 @@ class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
   }
 
  private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 
 class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortAtomic(tooling::Replacements *Replace)
+  PortAtomic(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -297,12 +300,12 @@ class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
   }
 
 private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 
 class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortEnum(tooling::Replacements *Replace)
+  PortEnum(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -322,12 +325,12 @@ class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
   }
 
 private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 
 class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortView2(tooling::Replacements *Replace)
+  PortView2(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -364,12 +367,12 @@ class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
   }
 
 private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 
 class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortRenamedMethods(tooling::Replacements *Replace)
+  PortRenamedMethods(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -407,16 +410,21 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
-    Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
+    //TODO move to helper function
+    Utils::AddReplacement(Result, ArgText);
+    /*SourceManager& SrcMgr = Result.Context->getSourceManager();
+    const FileEntry* Entry = SrcMgr.getFileEntryForID(SrcMgr.getFileID(Call->getLocStart()));
+    llvm::StringRef FileName = Entry->getName();
+    Replace->insert(std::pair<std::string, Replacements>(FileName, Replacement(*Result.SourceManager, Call, ArgText)));*/
   }
 
  private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  RemoveArgument(tooling::Replacements *Replace)
+  RemoveArgument(Replacements *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -468,7 +476,7 @@ class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
   }
 
  private:
-  tooling::Replacements *Replace;
+  Replacements *Replace;
 };
 } // end namespace
 
@@ -485,7 +493,7 @@ int portMethod(const CompilationDatabase &Compilations)
 
   Finder.addMatcher(
       id("call",
-        call(
+        callExpr(
           anyOf(
             allOf(
               callee(functionDecl(hasName(matchName))),
@@ -519,14 +527,14 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
       statement(
         has(
           id("call",
-            call(
+            callExpr(
               callee(
                 memberExpr()
               )
             )
           )
         ),
-        has(call(callee(functionDecl(hasName("::QMetaMethod::signature")))))
+        has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
       ),
       expression(unless(clang::ast_matchers::binaryOperator()))
       )
@@ -545,15 +553,15 @@ int portQtEscape(const CompilationDatabase &Compilations)
 
   Finder.addMatcher(
     id("call",
-      call(
+      callExpr(
         callee(functionDecl(hasName(QtEscapeFunction))),
         hasArgument(
           0,
           anyOf(
-            bindTemporaryExpression(has(id("ctor", constructorCall()))),
-            bindTemporaryExpression(has(id("operator", overloadedOperatorCall()))),
-            id("operator", overloadedOperatorCall()),
-            id("ctor", constructorCall()),
+            bindTemporaryExpression(has(id("ctor", constructorcallExpr()))),
+            bindTemporaryExpression(has(id("operator", overloadedOperatorcallExpr()))),
+            id("operator", overloadedOperatorcallExpr()),
+            id("ctor", constructorcallExpr()),
             id("expr", expression())
           )
         )
@@ -574,7 +582,7 @@ int portAtomics(const CompilationDatabase &Compilations)
 
   Finder.addMatcher(
       id("call",
-        call(
+        callExpr(
           callee(functionDecl(hasName("::QBasicAtomicInt::operator int")))
         )
       ), &AtomicCallback);
@@ -592,7 +600,7 @@ int portQImageText(const CompilationDatabase &Compilations)
 
   Finder.addMatcher(
       id("call",
-        call(
+        callExpr(
           callee(functionDecl(hasName("::QImage::text"))),
           hasArgument(
             0,
@@ -607,7 +615,7 @@ int portQImageText(const CompilationDatabase &Compilations)
 
   Finder.addMatcher(
       id("call",
-        call(
+        callExpr(
           callee(functionDecl(hasName("::QImage::setText"))),
           hasArgument(
             0,

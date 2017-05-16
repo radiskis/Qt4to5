@@ -24,6 +24,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++11")
 
 add_executable(qt4to5
   Qt4To5.cpp
+  Utils.cpp
 )
 
 target_link_libraries(qt4to5
