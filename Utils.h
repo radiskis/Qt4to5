@@ -1,9 +1,11 @@
 #include <string>
 
-#include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/Tooling/Refactoring.h"
 
 namespace Utils {
     using namespace clang;
-    using namespace clang::ast_matchers;
-    void AddReplacement(const MatchFinder::MatchResult &Result, std::string &ArgText);
+    using clang::tooling::Replacements;
+    using clang::tooling::Replacement;
+    
+    llvm::Error AddReplacement(const FileEntry* Entry, Replacement &replacement, std::map<std::string, Replacements> *replacementMap);
 }

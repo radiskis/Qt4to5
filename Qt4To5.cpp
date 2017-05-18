@@ -411,7 +411,12 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
     //TODO move to helper function
-    Utils::AddReplacement(Result, ArgText);
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText),
+      Replace
+    );
     /*SourceManager& SrcMgr = Result.Context->getSourceManager();
     const FileEntry* Entry = SrcMgr.getFileEntryForID(SrcMgr.getFileID(Call->getLocStart()));
     llvm::StringRef FileName = Entry->getName();

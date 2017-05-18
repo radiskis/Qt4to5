@@ -1,17 +1,28 @@
 #include <string>
-#include "clang/ASTMatchers/ASTMatchers.h"
+
+#include "llvm/Support/Error.h"
+#include "clang/Tooling/Refactoring.h"
 
 #include "Utils.h"
 
 namespace Utils {
     using namespace clang;
-    using namespace clang::ast_matchers;
+    using namespace llvm;
     using clang::tooling::Replacements;
+    using clang::tooling::Replacement;
+    
+    llvm::Error AddReplacement(const FileEntry* Entry, Replacement &replacement, std::map<std::string, Replacements> *replacementMap){        
+        StringRef FileName = Entry->getName();
 
-    void AddReplacement(const MatchFinder::MatchResult &Result, std::string &ArgText){
-        SourceManager& SrcMgr = Result.Context->getSourceManager();
-        const FileEntry* Entry = SrcMgr.getFileEntryForID(SrcMgr.getFileID(Call->getLocStart()));
-        llvm::StringRef FileName = Entry->getName();
-        Replace->insert(std::pair<std::string, Replacements>(FileName, Replacement(*Result.SourceManager, Call, ArgText)));
+        if( replacementMap->count(FileName) > 0){
+            return replacementMap->find(FileName)->second.add(replacement);
+        }
+        else {
+            replacementMap->insert(std::pair<std::string, Replacements>(FileName, replacement));
+        }
+
+        return llvm::Error::success();
     }
+
+    
 }
