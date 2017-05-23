@@ -11,7 +11,7 @@ namespace Utils {
     using clang::tooling::Replacements;
     using clang::tooling::Replacement;
     
-    llvm::Error AddReplacement(const FileEntry* Entry, Replacement &replacement, std::map<std::string, Replacements> *replacementMap){        
+    llvm::Error AddReplacement(const FileEntry* Entry, const Replacement &replacement, std::map<std::string, Replacements> *replacementMap){        
         StringRef FileName = Entry->getName();
 
         if( replacementMap->count(FileName) > 0){
