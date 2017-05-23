@@ -510,13 +510,13 @@ int portMethod(const CompilationDatabase &Compilations)
             ),
             allOf(
               callee(functionDecl(hasName(matchName))),
-              callee(id("func", expression()))
+              callee(id("func", expr()))
             )
           )
         )
       ), &RenameMethodCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQMetaMethodSignature(const CompilationDatabase &Compilations)
@@ -541,11 +541,11 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
         ),
         has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
       ),
-      expression(unless(clang::ast_matchers::binaryOperator()))
+      expr(unless(clang::ast_matchers::binaryOperator()))
       )
     , &MetaMethodCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQtEscape(const CompilationDatabase &Compilations)
@@ -567,14 +567,14 @@ int portQtEscape(const CompilationDatabase &Compilations)
             bindTemporaryExpression(has(id("operator", overloadedOperatorcallExpr()))),
             id("operator", overloadedOperatorcallExpr()),
             id("ctor", constructorcallExpr()),
-            id("expr", expression())
+            id("expr", expr())
           )
         )
       )
     ),
     &Callback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portAtomics(const CompilationDatabase &Compilations)
@@ -592,7 +592,7 @@ int portAtomics(const CompilationDatabase &Compilations)
         )
       ), &AtomicCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQImageText(const CompilationDatabase &Compilations)
@@ -609,11 +609,11 @@ int portQImageText(const CompilationDatabase &Compilations)
           callee(functionDecl(hasName("::QImage::text"))),
           hasArgument(
             0,
-            id("prevArg", expression())
+            id("prevArg", expr())
           ),
           hasArgument(
             1,
-            id("arg", expression(clang::ast_matchers::integerLiteral(equals(0))))
+            id("arg", expr(clang::ast_matchers::integerLiteral(equals(0))))
           )
         )
       ), &ImageTextCallback);
@@ -624,7 +624,7 @@ int portQImageText(const CompilationDatabase &Compilations)
           callee(functionDecl(hasName("::QImage::setText"))),
           hasArgument(
             0,
-            id("prevArg", expression())
+            id("prevArg", expr())
           ),
           hasArgument(
             1,
@@ -633,7 +633,7 @@ int portQImageText(const CompilationDatabase &Compilations)
         )
       ), &ImageTextCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portViewDataChanged(const CompilationDatabase &Compilations)
@@ -657,7 +657,7 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
     ,
     &ViewCallback2);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 namespace clang {
@@ -681,7 +681,7 @@ int portEnum(const CompilationDatabase &Compilations)
     ,
     &Callback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int main(int argc, char **argv) {
