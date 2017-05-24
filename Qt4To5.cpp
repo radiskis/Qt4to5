@@ -165,7 +165,7 @@ static std::string getText(const SourceManager &SourceManager, const T &Node) {
 }
 
 template <typename T>
-void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, Replacements *Replace)
+void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, std::map<std::string, Replacements> *Replace)
 {
   SourceLocation StartSpellingLocation =
       SourceManager->getSpellingLoc(Node->getLocStart());
@@ -207,9 +207,19 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, Repl
   std::string ExistingText = std::string(Text, eol);
 
   SourceLocation EndOfLine = StartOfLine.getLocWithOffset(eol);
-
-  Replace->add(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
-  Replace->add(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
+  
+  Utils::AddReplacement(
+      SourceManager->getFileEntryForID(Start.first),
+      Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"),
+      Replace
+    );
+  //Replace->add(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
+  Utils::AddReplacement(
+      SourceManager->getFileEntryForID(Start.first),
+      Replacement(*SourceManager, EndOfLine, 0, "\n#endif"),
+      Replace
+  );
+  //Replace->add(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
 }
 
 #define QStringClassName "QString"
@@ -219,7 +229,7 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, Repl
 namespace {
 class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortQtEscape4To5(Replacements *Replace)
+  PortQtEscape4To5(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -241,19 +251,25 @@ class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
     const std::string output = (CTor || O) ? QStringClassName "(" + ArgText + ").toHtmlEscaped()"
                                : ArgText + ".toHtmlEscaped()";
 
-    Replace->add(Replacement(*Result.SourceManager, Call, output));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, output),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, output));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortMetaMethods(Replacements *Replace)
+  PortMetaMethods(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -270,19 +286,25 @@ class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(target), target.size(), replacement);
 
-    Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortAtomic(Replacements *Replace)
+  PortAtomic(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -293,19 +315,26 @@ class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
 
     if (ArgText.empty()) return;
 
-    Replace->add(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText + ".load()"),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
 private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortEnum(Replacements *Replace)
+  PortEnum(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -317,20 +346,27 @@ class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
     if (ArgText.empty()) return;
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
+    
+    SourceManager &srcMgr = Result.Context->getSourceManager();
 
-    Replace->add(Replacement(*Result.SourceManager, Call, Rename_New));
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, Rename_New),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, Rename_New));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
 private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortView2(Replacements *Replace)
+  PortView2(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -360,14 +396,20 @@ class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
     if (!F->isThisDeclarationADefinition() || F->hasInlineBody())
       NewArg += " = QVector<int>()";
 
-    Replace->add(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(P->getLocStart())),
+      Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, P, Replace);
   }
 
 private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
@@ -429,7 +471,7 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
 class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  RemoveArgument(Replacements *Replace)
+  RemoveArgument(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
@@ -474,14 +516,21 @@ class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
     CharSourceRange range;
     range.setBegin(StartSpellingLocation);
     range.setEnd(EndSpellingLocation);
-    Replace->add(Replacement(*Result.SourceManager, range, ""));
+    
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(Start.first),
+      Replacement(*Result.SourceManager, range, ""),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, range, ""));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 } // end namespace
 
