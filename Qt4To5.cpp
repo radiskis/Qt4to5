@@ -546,24 +546,23 @@ int portMethod(const CompilationDatabase &Compilations)
   PortRenamedMethods RenameMethodCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        callExpr(
-          anyOf(
-            allOf(
-              callee(functionDecl(hasName(matchName))),
-              callee(id("exact", memberExpr()))
-            ),
-            allOf(
-              callee(functionDecl(hasName(Rename_Old))),
-              callee(id("expr", memberExpr()))
-            ),
-            allOf(
-              callee(functionDecl(hasName(matchName))),
-              callee(id("func", expr()))
-            )
+      callExpr(
+        anyOf(
+          allOf(
+            callee(functionDecl(hasName(matchName))),
+            callee(memberExpr().bind("exact"))
+          ),
+          allOf(
+            callee(functionDecl(hasName(Rename_Old))),
+            callee(memberExpr().bind("expr"))
+          ),
+          allOf(
+            callee(functionDecl(hasName(matchName))),
+            callee(expr().bind("func"))
           )
         )
-      ), &RenameMethodCallback);
+      ).bind("call"), 
+      &RenameMethodCallback);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
 }
@@ -580,13 +579,11 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
     	stmt(
       	stmt(
           has(
-            id("call",
-              callExpr(
-                callee(
-                  memberExpr()
-                )
+            callExpr(
+              callee(
+                memberExpr()
               )
-            )
+            ).bind("call")
           ),
           has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
         ),
@@ -606,20 +603,18 @@ int portQtEscape(const CompilationDatabase &Compilations)
   PortQtEscape4To5 Callback(&Tool.getReplacements());
 
   Finder.addMatcher(
-    id("call",
-      callExpr(
-        callee(functionDecl(hasName(QtEscapeFunction))),
-        hasArgument(
-          0,
-          anyOf(
-            cxxBindTemporaryExpr(has(id("operator", cxxOperatorCallExpr()))),//unclear wheather or not this is needed still
-            id("operator", cxxOperatorCallExpr()),
-            id("ctor", cxxConstructExpr()),
-            id("expr", expr())
-          )
+    callExpr(
+      callee(functionDecl(hasName(QtEscapeFunction))),
+      hasArgument(
+        0,
+        anyOf(
+          cxxBindTemporaryExpr(has(cxxOperatorCallExpr().bind("operator"))),//unclear wheather or not this is needed still
+          cxxOperatorCallExpr().bind("operator"),
+          cxxConstructExpr().bind("ctor"),
+          expr().bind("expr")
         )
       )
-    ),
+    ).bind("call"),
     &Callback);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
@@ -634,11 +629,9 @@ int portAtomics(const CompilationDatabase &Compilations)
   PortAtomic AtomicCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        callExpr(
-          callee(functionDecl(hasName("::QBasicAtomicInt::operator int")))
-        )
-      ), &AtomicCallback);
+      callExpr(
+        callee(functionDecl(hasName("::QBasicAtomicInt::operator int")))
+      ).bind("call"), &AtomicCallback);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
 }
@@ -652,34 +645,30 @@ int portQImageText(const CompilationDatabase &Compilations)
   RemoveArgument ImageTextCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        callExpr(
-          callee(functionDecl(hasName("::QImage::text"))),
-          hasArgument(
-            0,
-            id("prevArg", expr())
-          ),
-          hasArgument(
-            1,
-            id("arg", expr(clang::ast_matchers::integerLiteral(equals(0))))
-          )
+      callExpr(
+        callee(functionDecl(hasName("::QImage::text"))),
+        hasArgument(
+          0,
+          expr().bind("prevArg")
+        ),
+        hasArgument(
+          1,
+          expr(clang::ast_matchers::integerLiteral(equals(0)).bind("arg"))
         )
-      ), &ImageTextCallback);
+      ).bind("call"), &ImageTextCallback);
 
   Finder.addMatcher(
-      id("call",
-        callExpr(
-          callee(functionDecl(hasName("::QImage::setText"))),
-          hasArgument(
-            0,
-            id("prevArg", expr())
-          ),
-          hasArgument(
-            1,
-            id("arg", expr(clang::ast_matchers::integerLiteral(equals(0))))
-          )
+      callExpr(
+        callee(functionDecl(hasName("::QImage::setText"))),
+        hasArgument(
+          0,
+          expr().bind("prevArg")
+        ),
+        hasArgument(
+          1,
+          expr(clang::ast_matchers::integerLiteral(equals(0)).bind("arg"))
         )
-      ), &ImageTextCallback);
+      ).bind("call"), &ImageTextCallback);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
 }
@@ -693,7 +682,7 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
   PortView2 ViewCallback2(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("funcDecl", cxxMethodDecl(
+      cxxMethodDecl(
         hasName("dataChanged"),
         ofClass(
           allOf(
@@ -701,18 +690,14 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
             unless(hasName("QAbstractItemView"))
           )
         )
-      ))
-    ,
-    &ViewCallback2);
+      ).bind("funcDecl"), &ViewCallback2);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 namespace clang {
 namespace ast_matchers {
-const internal::VariadicDynCastAllOfMatcher<
-  clang::Decl,
-  clang::EnumConstantDecl> enumeratorConstant;
+const internal::VariadicDynCastAllOfMatcher<clang::Decl, clang::EnumConstantDecl> enumeratorConstant;
 }
 }
 
@@ -725,8 +710,7 @@ int portEnum(const CompilationDatabase &Compilations)
   PortEnum Callback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call", declRefExpr(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))))
-    ,
+    declRefExpr(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))).bind("call"),
     &Callback);
 
   return Tool.run(newFrontendActionFactory(&Finder).get());
