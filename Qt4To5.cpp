@@ -612,10 +612,9 @@ int portQtEscape(const CompilationDatabase &Compilations)
         hasArgument(
           0,
           anyOf(
-            bindTemporaryExpression(has(id("ctor", constructorcallExpr()))),
-            bindTemporaryExpression(has(id("operator", overloadedOperatorcallExpr()))),
-            id("operator", overloadedOperatorcallExpr()),
-            id("ctor", constructorcallExpr()),
+            cxxBindTemporaryExpr(has(id("operator", cxxOperatorCallExpr()))),//unclear wheather or not this is needed still
+            id("operator", cxxOperatorCallExpr()),
+            id("ctor", cxxConstructExpr()),
             id("expr", expr())
           )
         )
@@ -677,7 +676,7 @@ int portQImageText(const CompilationDatabase &Compilations)
           ),
           hasArgument(
             1,
-            id("arg", expression(clang::ast_matchers::integerLiteral(equals(0))))
+            id("arg", expr(clang::ast_matchers::integerLiteral(equals(0))))
           )
         )
       ), &ImageTextCallback);
@@ -694,7 +693,7 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
   PortView2 ViewCallback2(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("funcDecl", method(
+      id("funcDecl", cxxMethodDecl(
         hasName("dataChanged"),
         ofClass(
           allOf(
@@ -726,7 +725,7 @@ int portEnum(const CompilationDatabase &Compilations)
   PortEnum Callback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call", declarationReference(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))))
+      id("call", declRefExpr(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))))
     ,
     &Callback);
 
