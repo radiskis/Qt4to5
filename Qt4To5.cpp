@@ -452,7 +452,7 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
-    //TODO move to helper function
+    //TODO Can SourceManager be moved to helper function?
     SourceManager &srcMgr = Result.Context->getSourceManager();
     Utils::AddReplacement(
       srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
@@ -577,20 +577,20 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
   PortMetaMethods MetaMethodCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-    statement(
-      statement(
-        has(
-          id("call",
-            callExpr(
-              callee(
-                memberExpr()
+    	stmt(
+      	stmt(
+          has(
+            id("call",
+              callExpr(
+                callee(
+                  memberExpr()
+                )
               )
             )
-          )
+          ),
+          has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
         ),
-        has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
-      ),
-      expr(unless(clang::ast_matchers::binaryOperator()))
+        expr(unless(clang::ast_matchers::binaryOperator()))
       )
     , &MetaMethodCallback);
 
