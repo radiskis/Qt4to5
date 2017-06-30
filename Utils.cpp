@@ -18,7 +18,7 @@ namespace Utils {
             return replacementMap->find(FileName)->second.add(replacement);
         }
         else {
-            replacementMap->insert(std::pair<std::string, Replacements>(FileName, replacement));
+            replacementMap->insert(std::pair<std::string, Replacements>(FileName, Replacements(replacement));
         }
 
         return llvm::Error::success();
