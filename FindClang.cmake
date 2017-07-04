@@ -92,21 +92,6 @@ endif()
 
 if(CLANG_LIBS OR CLANG_LIBCLANG_LIB)
   set(CLANG_FOUND TRUE)
-  #Sadly the default ClangConfig.cmake is broken on kubuntu and posiablly elsewhere. So we have to do this.
-  #Determine cmake search path based on install prefix as indictate by clang executable location.
-  find_program(CLANG_EXE_PATH clang)
-  get_filename_component(CLANG_EXE_PREFIX "${CLANG_EXE_PATH}" PATH)
-  get_filename_component(CLANG_INSTALL_PREFIX "${CLANG_EXE_PREFIX}" PATH)
-  
-  set(CLANG_DIRS "${CLANG_INSTALL_PREFIX}/share/clang" "${CLANG_INSTALL_PREFIX}/share/clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
-  set(CLANG_DIRS "${CLANG_DIRS}" "${CLANG_INSTALL_PREFIX}/share/llvm" "${CLANG_INSTALL_PREFIX}/share/llvm-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}" "${LLVM_DIR}")
-  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CLANG_DIRS}")
-  #Can't use ClangConfig due to improper setup on kubuntu.
-  set(CLANG_EXPORTED_TARGETS "clangBasic;clangLex;clangParse;clangAST;clangDynamicASTMatchers;clangASTMatchers;clangSema;clangCodeGen;clangAnalysis;clangEdit;clangRewrite;clangARCMigrate;clangDriver;clangSerialization;clangRewriteFrontend;clangFrontend;clangFrontendTool;clangToolingCore;clangTooling;clangIndex;clangStaticAnalyzerCore;clangStaticAnalyzerCheckers;clangStaticAnalyzerFrontend;clangFormat;clang;clang-format;clang-import-test;clangApplyReplacements;clangRename;clangReorderFields;clangTidy;clangTidyPlugin;clangTidyBoostModule;clangTidyCERTModule;clangTidyLLVMModule;clangTidyCppCoreGuidelinesModule;clangTidyGoogleModule;clangTidyMiscModule;clangTidyModernizeModule;clangTidyMPIModule;clangTidyPerformanceModule;clangTidyReadabilityModule;clangTidyUtils;clangChangeNamespace;clangQuery;clangMove;clangIncludeFixer;clangIncludeFixerPlugin;findAllSymbols;libclang")
-  #include(ClangConfig.cmake")
-  #Don't hard code the path for this. Find ClangTargets.cmake dynamicly.
-  find_file(CLANG_CONFIG "ClangTargets.cmake" HINTS ${CLANG_DIRS})
-  include("${CLANG_CONFIG}")
 else()
   message(STATUS "Could not find any Clang libraries in ${LLVM_LIBRARY_DIRS}")
 endif()
@@ -121,6 +106,7 @@ if(CLANG_FOUND)
     OUTPUT_VARIABLE _llvmSourceRoot
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
+
   string(FIND "${LLVM_INCLUDE_DIRS}" "${_llvmSourceRoot}" _llvmIsInstalled)
   if (NOT _llvmIsInstalled)
     message(STATUS "Detected that llvm-config comes from a build-tree, adding more include directories for Clang")
@@ -129,6 +115,23 @@ if(CLANG_FOUND)
          "${_llvmSourceRoot}/tools/clang/include"     # source dir
     )
   endif()
+
+  #Sadly the default ClangConfig.cmake is broken on kubuntu and posiablly elsewhere. So we have to do this.
+  #Determine cmake search path based on install prefix as indictate by clang executable location.
+  find_program(CLANG_EXE_PATH clang)
+  get_filename_component(CLANG_EXE_PREFIX "${CLANG_EXE_PATH}" PATH)
+  get_filename_component(CLANG_INSTALL_PREFIX "${CLANG_EXE_PREFIX}" PATH)
+  
+  set(CLANG_DIRS "${CLANG_INSTALL_PREFIX}/share/clang/cmake" "${CLANG_INSTALL_PREFIX}/share/clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}/cmake")
+  set(CLANG_DIRS "${CLANG_DIRS}" "${CLANG_INSTALL_PREFIX}/share/llvm/cmake" "${CLANG_INSTALL_PREFIX}/share/llvm-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}/cmake" "${LLVM_DIR}")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CLANG_DIRS}")
+  #Can't use ClangConfig due to improper setup on kubuntu.
+  set(CLANG_EXPORTED_TARGETS "clangBasic;clangLex;clangParse;clangAST;clangDynamicASTMatchers;clangASTMatchers;clangSema;clangCodeGen;clangAnalysis;clangEdit;clangRewrite;clangARCMigrate;clangDriver;clangSerialization;clangRewriteFrontend;clangFrontend;clangFrontendTool;clangToolingCore;clangTooling;clangIndex;clangStaticAnalyzerCore;clangStaticAnalyzerCheckers;clangStaticAnalyzerFrontend;clangFormat;clang;clang-format;clang-import-test;clangApplyReplacements;clangRename;clangReorderFields;clangTidy;clangTidyPlugin;clangTidyBoostModule;clangTidyCERTModule;clangTidyLLVMModule;clangTidyCppCoreGuidelinesModule;clangTidyGoogleModule;clangTidyMiscModule;clangTidyModernizeModule;clangTidyMPIModule;clangTidyPerformanceModule;clangTidyReadabilityModule;clangTidyUtils;clangChangeNamespace;clangQuery;clangMove;clangIncludeFixer;clangIncludeFixerPlugin;findAllSymbols;libclang")
+  #include(ClangConfig.cmake")
+  #Don't hard code a specific path for this. Find ClangTargets.cmake dynamicly.
+  find_file(CLANG_CONFIG "ClangTargets.cmake" PATHS /usr/lib/llvm-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}/lib/cmake/clang /usr/lib/llvm-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}/lib/cmake ${CLANG_DIRS})
+
+  include("${CLANG_CONFIG}")
 
   message(STATUS "Found Clang (LLVM version: ${LLVM_VERSION})")
   message(STATUS "  Include dirs:       ${CLANG_INCLUDE_DIRS}")

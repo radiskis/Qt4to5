@@ -10,6 +10,13 @@ must also be install. The fallowing are needed:
 I don't like depending a specific version but the clang/llvm developers donot garentee abi compatiblity
 between versions beyond minor bugfix releases.
 
+For kubuntu you will needed to do:
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangConfig.cmake --rename /usr/share/llvm-4.0/cmake/ClangConfig.cmake
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets.cmake
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake
+
+These files are not installed to the right place by default. 
+
 To build it:
 
   git clone https://github.com/reporter123/Qt4to5 qt4to5
