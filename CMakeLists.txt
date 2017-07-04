@@ -1,20 +1,13 @@
 cmake_minimum_required(VERSION 3.1)
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 
-find_path(LibClang_INCLUDE_DIR clang-c/Index.h)
-find_library(LIBCLANG_LIBRARY NAMES clang)
-find_package(LLVM REQUIRED)
-
-include_directories(${LLVM_INCLUDE_DIR})
-link_directories(${LLVM_LIB_DIR})
-
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
+#find_path(LibClang_INCLUDE_DIR clang-c/Index.h)
+#find_library(LIBCLANG_LIBRARY NAMES clang)
 find_package(Clang REQUIRED)
-#each of these variables maybe blank. This will cause the macro to stop looking for parameters
-include_directories(${LibClang_INCLUDE_DIR})
-include_directories(${CLANG_INCLUDE_DIRS})
+
+include_directories(${LLVM_INCLUDE_DIR} ${CLANG_INCLUDE_DIRS})
+link_directories(${LLVM_LIB_DIR} ${CLANG_LIBRARY_DIRS})
 
 ###
 add_definitions(${LLVM_DEFINITIONS})
