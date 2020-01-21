@@ -19,7 +19,7 @@ These files are not installed to the right place by default.
 
 To build it:
 
-  git clone https://github.com/reporter123/Qt4to5 qt4to5
+  git clone https://github.com/kimocoder/Qt4to5 qt4to5
   mkdir build && cd build
   cmake ..
   make
