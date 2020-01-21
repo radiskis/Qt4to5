@@ -1,16 +1,28 @@
 This tool ports from Qt 4 to Qt 5.
 
+If the proper developement packages are install this plugin can be compiled with out being the
+clang source tree. However this does not always work out-of-the-box on kubuntu. Clang and llvm binaries
+must also be install. The fallowing are needed:
+  clang/llvm 4.0.x
+  libclang - A seprate package for my distro.
+  All developement headers for the above. This inteaded to build outside the clang/llvm source tree.
+
+I don't like depending a specific version but the clang/llvm developers donot garentee abi compatiblity
+between versions beyond minor bugfix releases.
+
+For kubuntu you will needed to do:
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangConfig.cmake --rename /usr/share/llvm-4.0/cmake/ClangConfig.cmake
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets.cmake
+dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake
+
+These files are not installed to the right place by default. 
+
 To build it:
 
-  git clone http://llvm.org/git/llvm.git
-  cd llvm/tools
-  svn co http://llvm.org/svn/llvm-project/cfe/trunk clang
-  cd clang/tools
-  git clone https://github.com/KDAB/Qt4to5 qt4to5
-  echo "add_subdirectory(qt4to5)" >> CMakeLists.txt
-  cd ../../../ # Back down to the llvm checkout
+  git clone https://github.com/reporter123/Qt4to5 qt4to5
   mkdir build && cd build
-  cmake .. -DCLANG_BUILD_EXAMPLES=True
+  cmake ..
+  make
 
 To run it, edit and run the portqt4to5.py script.
 

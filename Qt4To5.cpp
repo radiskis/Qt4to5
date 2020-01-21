@@ -41,21 +41,24 @@
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/system_error.h"
+#include <system_error>
 
 #include <iostream>
 
+#include "Utils.h"
+
+using std::error_code;
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace llvm;
 using clang::tooling::newFrontendActionFactory;
 using clang::tooling::Replacement;
+using clang::tooling::Replacements;
 using clang::tooling::CompilationDatabase;
 
 cl::opt<std::string> SourceDir(
@@ -162,7 +165,7 @@ static std::string getText(const SourceManager &SourceManager, const T &Node) {
 }
 
 template <typename T>
-void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tooling::Replacements *Replace)
+void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, std::map<std::string, Replacements> *Replace)
 {
   SourceLocation StartSpellingLocation =
       SourceManager->getSpellingLoc(Node->getLocStart());
@@ -204,9 +207,19 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tool
   std::string ExistingText = std::string(Text, eol);
 
   SourceLocation EndOfLine = StartOfLine.getLocWithOffset(eol);
-
-  Replace->insert(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
-  Replace->insert(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
+  
+  Utils::AddReplacement(
+      SourceManager->getFileEntryForID(Start.first),
+      Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"),
+      Replace
+    );
+  //Replace->add(Replacement(*SourceManager, StartOfLine, 0, "#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)\n" + ExistingText + "\n#else\n"));
+  Utils::AddReplacement(
+      SourceManager->getFileEntryForID(Start.first),
+      Replacement(*SourceManager, EndOfLine, 0, "\n#endif"),
+      Replace
+  );
+  //Replace->add(Replacement(*SourceManager, EndOfLine, 0, "\n#endif"));
 }
 
 #define QStringClassName "QString"
@@ -216,18 +229,18 @@ void insertIfdef(clang::SourceManager * const SourceManager, const T *Node, tool
 namespace {
 class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortQtEscape4To5(tooling::Replacements *Replace)
+  PortQtEscape4To5(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const Expr *CTor =
-        Result.Nodes.getStmtAs<Expr>("ctor");
+        Result.Nodes.getNodeAs<Expr>("ctor");
     const Expr *E =
-        Result.Nodes.getStmtAs<Expr>("expr");
+        Result.Nodes.getNodeAs<Expr>("expr");
     const Expr *O =
-        Result.Nodes.getStmtAs<Expr>("operator");
+        Result.Nodes.getNodeAs<Expr>("operator");
 
     const std::string ArgText = CTor ? getText(*Result.SourceManager, *CTor)
                                  : E ? getText(*Result.SourceManager, *E)
@@ -238,24 +251,30 @@ class PortQtEscape4To5 : public ast_matchers::MatchFinder::MatchCallback {
     const std::string output = (CTor || O) ? QStringClassName "(" + ArgText + ").toHtmlEscaped()"
                                : ArgText + ".toHtmlEscaped()";
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, output));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, output),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, output));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortMetaMethods(tooling::Replacements *Replace)
+  PortMetaMethods(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const Expr *Call =
-        Result.Nodes.getStmtAs<Expr>("call");
+        Result.Nodes.getNodeAs<Expr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
@@ -267,73 +286,93 @@ class PortMetaMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(target), target.size(), replacement);
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, ArgText));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortAtomic : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortAtomic(tooling::Replacements *Replace)
+  PortAtomic(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
     if (ArgText.empty()) return;
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText + ".load()"),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, ArgText + ".load()"));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
 private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortEnum : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortEnum(tooling::Replacements *Replace)
+  PortEnum(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const DeclRefExpr *Call =
-        Result.Nodes.getStmtAs<DeclRefExpr>("call");
+        Result.Nodes.getNodeAs<DeclRefExpr>("call");
 
     std::string ArgText = getText(*Result.SourceManager, *Call);
 
     if (ArgText.empty()) return;
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
+    
+    SourceManager &srcMgr = Result.Context->getSourceManager();
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, Rename_New));
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, Rename_New),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, Call, Rename_New));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
 private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortView2(tooling::Replacements *Replace)
+  PortView2(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
 
     const CXXMethodDecl *F =
-        Result.Nodes.getDeclAs<CXXMethodDecl>("funcDecl");
+        Result.Nodes.getNodeAs<CXXMethodDecl>("funcDecl");
 
     SourceLocation StartSpellingLocation =
         Result.SourceManager->getSpellingLoc(F->getLocStart());
@@ -357,30 +396,36 @@ class PortView2 : public ast_matchers::MatchFinder::MatchCallback {
     if (!F->isThisDeclarationADefinition() || F->hasInlineBody())
       NewArg += " = QVector<int>()";
 
-    Replace->insert(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(P->getLocStart())),
+      Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, P, ArgText + ", " + NewArg));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, P, Replace);
   }
 
 private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  PortRenamedMethods(tooling::Replacements *Replace)
+  PortRenamedMethods(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const MemberExpr *E =
-        Result.Nodes.getStmtAs<MemberExpr>("expr");
+        Result.Nodes.getNodeAs<MemberExpr>("expr");
     const MemberExpr *Exact =
-        Result.Nodes.getStmtAs<MemberExpr>("exact");
+        Result.Nodes.getNodeAs<MemberExpr>("exact");
     const Expr *Func =
-        Result.Nodes.getStmtAs<Expr>("func");
+        Result.Nodes.getNodeAs<Expr>("func");
 
     bool overriddenVirtual = false;
     if (!Exact && !Func) {
@@ -407,25 +452,35 @@ class PortRenamedMethods : public ast_matchers::MatchFinder::MatchCallback {
 
     ArgText.replace(ArgText.find(Rename_Old), Rename_Old.size(), Rename_New);
 
-    Replace->insert(Replacement(*Result.SourceManager, Call, ArgText));
+    //TODO Can SourceManager be moved to helper function?
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(srcMgr.getFileID(Call->getLocStart())),
+      Replacement(*Result.SourceManager, Call, ArgText),
+      Replace
+    );
+    /*SourceManager& SrcMgr = Result.Context->getSourceManager();
+    const FileEntry* Entry = SrcMgr.getFileEntryForID(SrcMgr.getFileID(Call->getLocStart()));
+    llvm::StringRef FileName = Entry->getName();
+    Replace->insert(std::pair<std::string, Replacements>(FileName, Replacement(*Result.SourceManager, Call, ArgText)));*/
   }
 
  private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 
 class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
  public:
-  RemoveArgument(tooling::Replacements *Replace)
+  RemoveArgument(std::map<std::string, Replacements> *Replace)
       : Replace(Replace) {}
 
   virtual void run(const ast_matchers::MatchFinder::MatchResult &Result) {
     const CallExpr *Call =
-        Result.Nodes.getStmtAs<CallExpr>("call");
+        Result.Nodes.getNodeAs<CallExpr>("call");
     const Expr *Key =
-        Result.Nodes.getStmtAs<Expr>("prevArg");
+        Result.Nodes.getNodeAs<Expr>("prevArg");
     const Expr *Lang =
-        Result.Nodes.getStmtAs<Expr>("arg");
+        Result.Nodes.getNodeAs<Expr>("arg");
 
     SourceLocation StartSpellingLocation =
         Result.SourceManager->getSpellingLoc(Key->getLocEnd());
@@ -461,14 +516,21 @@ class RemoveArgument : public ast_matchers::MatchFinder::MatchCallback {
     CharSourceRange range;
     range.setBegin(StartSpellingLocation);
     range.setEnd(EndSpellingLocation);
-    Replace->insert(Replacement(*Result.SourceManager, range, ""));
+    
+    SourceManager &srcMgr = Result.Context->getSourceManager();
+    Utils::AddReplacement(
+      srcMgr.getFileEntryForID(Start.first),
+      Replacement(*Result.SourceManager, range, ""),
+      Replace
+    );
+    //Replace->add(Replacement(*Result.SourceManager, range, ""));
 
     if (CreateIfdefs)
       insertIfdef(Result.SourceManager, Call, Replace);
   }
 
  private:
-  tooling::Replacements *Replace;
+  std::map<std::string, Replacements> *Replace;
 };
 } // end namespace
 
@@ -484,26 +546,25 @@ int portMethod(const CompilationDatabase &Compilations)
   PortRenamedMethods RenameMethodCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        call(
-          anyOf(
-            allOf(
-              callee(function(hasName(matchName))),
-              callee(id("exact", memberExpression()))
-            ),
-            allOf(
-              callee(function(hasName(Rename_Old))),
-              callee(id("expr", memberExpression()))
-            ),
-            allOf(
-              callee(function(hasName(matchName))),
-              callee(id("func", expression()))
-            )
+      callExpr(
+        anyOf(
+          allOf(
+            callee(functionDecl(hasName(matchName))),
+            callee(memberExpr().bind("exact"))
+          ),
+          allOf(
+            callee(functionDecl(hasName(Rename_Old))),
+            callee(memberExpr().bind("expr"))
+          ),
+          allOf(
+            callee(functionDecl(hasName(matchName))),
+            callee(expr().bind("func"))
           )
         )
-      ), &RenameMethodCallback);
+      ).bind("call"), 
+      &RenameMethodCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQMetaMethodSignature(const CompilationDatabase &Compilations)
@@ -515,24 +576,22 @@ int portQMetaMethodSignature(const CompilationDatabase &Compilations)
   PortMetaMethods MetaMethodCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-    statement(
-      statement(
-        has(
-          id("call",
-            call(
+    	stmt(
+      	stmt(
+          has(
+            callExpr(
               callee(
-                memberExpression()
+                memberExpr()
               )
-            )
-          )
+            ).bind("call")
+          ),
+          has(callExpr(callee(functionDecl(hasName("::QMetaMethod::signature")))))
         ),
-        has(call(callee(function(hasName("::QMetaMethod::signature")))))
-      ),
-      expression(unless(clang::ast_matchers::binaryOperator()))
+        expr(unless(clang::ast_matchers::binaryOperator()))
       )
     , &MetaMethodCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQtEscape(const CompilationDatabase &Compilations)
@@ -544,24 +603,21 @@ int portQtEscape(const CompilationDatabase &Compilations)
   PortQtEscape4To5 Callback(&Tool.getReplacements());
 
   Finder.addMatcher(
-    id("call",
-      call(
-        callee(function(hasName(QtEscapeFunction))),
-        hasArgument(
-          0,
-          anyOf(
-            bindTemporaryExpression(has(id("ctor", constructorCall()))),
-            bindTemporaryExpression(has(id("operator", overloadedOperatorCall()))),
-            id("operator", overloadedOperatorCall()),
-            id("ctor", constructorCall()),
-            id("expr", expression())
-          )
+    callExpr(
+      callee(functionDecl(hasName(QtEscapeFunction))),
+      hasArgument(
+        0,
+        anyOf(
+          cxxBindTemporaryExpr(has(cxxOperatorCallExpr().bind("operator"))),//unclear wheather or not this is needed still
+          cxxOperatorCallExpr().bind("operator"),
+          cxxConstructExpr().bind("ctor"),
+          expr().bind("expr")
         )
       )
-    ),
+    ).bind("call"),
     &Callback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portAtomics(const CompilationDatabase &Compilations)
@@ -573,13 +629,11 @@ int portAtomics(const CompilationDatabase &Compilations)
   PortAtomic AtomicCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        call(
-          callee(function(hasName("::QBasicAtomicInt::operator int")))
-        )
-      ), &AtomicCallback);
+      callExpr(
+        callee(functionDecl(hasName("::QBasicAtomicInt::operator int")))
+      ).bind("call"), &AtomicCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portQImageText(const CompilationDatabase &Compilations)
@@ -591,36 +645,32 @@ int portQImageText(const CompilationDatabase &Compilations)
   RemoveArgument ImageTextCallback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call",
-        call(
-          callee(function(hasName("::QImage::text"))),
-          hasArgument(
-            0,
-            id("prevArg", expression())
-          ),
-          hasArgument(
-            1,
-            id("arg", expression(clang::ast_matchers::integerLiteral(equals(0))))
-          )
+      callExpr(
+        callee(functionDecl(hasName("::QImage::text"))),
+        hasArgument(
+          0,
+          expr().bind("prevArg")
+        ),
+        hasArgument(
+          1,
+          expr(clang::ast_matchers::integerLiteral(equals(0)).bind("arg"))
         )
-      ), &ImageTextCallback);
+      ).bind("call"), &ImageTextCallback);
 
   Finder.addMatcher(
-      id("call",
-        call(
-          callee(function(hasName("::QImage::setText"))),
-          hasArgument(
-            0,
-            id("prevArg", expression())
-          ),
-          hasArgument(
-            1,
-            id("arg", expression(clang::ast_matchers::integerLiteral(equals(0))))
-          )
+      callExpr(
+        callee(functionDecl(hasName("::QImage::setText"))),
+        hasArgument(
+          0,
+          expr().bind("prevArg")
+        ),
+        hasArgument(
+          1,
+          expr(clang::ast_matchers::integerLiteral(equals(0)).bind("arg"))
         )
-      ), &ImageTextCallback);
+      ).bind("call"), &ImageTextCallback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int portViewDataChanged(const CompilationDatabase &Compilations)
@@ -632,7 +682,7 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
   PortView2 ViewCallback2(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("funcDecl", method(
+      cxxMethodDecl(
         hasName("dataChanged"),
         ofClass(
           allOf(
@@ -640,18 +690,14 @@ int portViewDataChanged(const CompilationDatabase &Compilations)
             unless(hasName("QAbstractItemView"))
           )
         )
-      ))
-    ,
-    &ViewCallback2);
+      ).bind("funcDecl"), &ViewCallback2);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 namespace clang {
 namespace ast_matchers {
-const internal::VariadicDynCastAllOfMatcher<
-  clang::Decl,
-  clang::EnumConstantDecl> enumeratorConstant;
+const internal::VariadicDynCastAllOfMatcher<clang::Decl, clang::EnumConstantDecl> enumeratorConstant;
 }
 }
 
@@ -664,17 +710,16 @@ int portEnum(const CompilationDatabase &Compilations)
   PortEnum Callback(&Tool.getReplacements());
 
   Finder.addMatcher(
-      id("call", declarationReference(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))))
-    ,
+    declRefExpr(to(enumeratorConstant(hasName(RenameEnum + "::" + Rename_Old)))).bind("call"),
     &Callback);
 
-  return Tool.run(newFrontendActionFactory(&Finder));
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
 
 int main(int argc, char **argv) {
   cl::ParseCommandLineOptions(argc, argv);
   std::string ErrorMessage;
-  llvm::OwningPtr<CompilationDatabase> Compilations(
+  std::unique_ptr<CompilationDatabase> Compilations(
     CompilationDatabase::loadFromDirectory(BuildPath, ErrorMessage));
 
 
