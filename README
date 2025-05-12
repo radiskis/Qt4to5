@@ -1,25 +1,21 @@
-This tool ports from Qt 4 to Qt 5.
+This tool ports from Qt 4 to Qt 5. Forked from https://github.com/kimocoder/Qt4to5
 
-If the proper developement packages are install this plugin can be compiled with out being the
-clang source tree. However this does not always work out-of-the-box on kubuntu. Clang and llvm binaries
-must also be install. The fallowing are needed:
-  clang/llvm 4.0.x
-  libclang - A seprate package for my distro.
-  All developement headers for the above. This inteaded to build outside the clang/llvm source tree.
+For this to work you need clang/LLVM 4. Simplest way to do that now (2025) is to get Debian Strech install.
+Get debian-9.13.0-amd64-netinst.iso from https://cdimage.debian.org/cdimage/archive/9.13.0/amd64/iso-cd/
+Install it with repository manually set to "http://archive.debian.org" when asked (as in https://www.debian.org/distrib/archive).
 
-I don't like depending a specific version but the clang/llvm developers donot garentee abi compatiblity
-between versions beyond minor bugfix releases.
-
-For kubuntu you will needed to do:
+apt get install libclang-4.0 libclang-4.0-dev llvm-4.0 llvm-4.0-dev libclang1-4.0 libclang-4.0-dev clang-format-4.0 clang-tools-4.0 cmake build-essentials
+sudo ln -s /usr/bin/clang-format-4.0 /usr/bin/clang-format
+sudo ln -s /usr/bin/clang-import-test-4.0 /usr/bin/clang-import-test
+cp /usr/lib/llvm-4.0/lib/* /usr/lib/
 dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangConfig.cmake --rename /usr/share/llvm-4.0/cmake/ClangConfig.cmake
 dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets.cmake
 dpkg-divert --divert /usr/lib/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake --rename /usr/share/llvm-4.0/cmake/ClangTargets-relwithdebinfo.cmake
 
-These files are not installed to the right place by default. 
-
 To build it:
 
   git clone https://github.com/kimocoder/Qt4to5 qt4to5
+  cd qt4to5
   mkdir build && cd build
   cmake ..
   make
