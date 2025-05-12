@@ -4,7 +4,7 @@ For this to work you need clang/LLVM 4. Simplest way to do that now (2025) is to
 Get debian-9.13.0-amd64-netinst.iso from https://cdimage.debian.org/cdimage/archive/9.13.0/amd64/iso-cd/
 Install it with repository manually set to "http://archive.debian.org" when asked (as in https://www.debian.org/distrib/archive).
 
-apt get install libclang-4.0 libclang-4.0-dev llvm-4.0 llvm-4.0-dev libclang1-4.0 libclang-4.0-dev clang-format-4.0 clang-tools-4.0 cmake build-essentials
+apt get install libclang-4.0 libclang-4.0-dev llvm-4.0 llvm-4.0-dev libclang1-4.0 libclang-4.0-dev clang-format-4.0 clang-tools-4.0 cmake build-essential
 sudo ln -s /usr/bin/clang-format-4.0 /usr/bin/clang-format
 sudo ln -s /usr/bin/clang-import-test-4.0 /usr/bin/clang-import-test
 cp /usr/lib/llvm-4.0/lib/* /usr/lib/
