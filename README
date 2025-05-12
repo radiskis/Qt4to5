@@ -1,5 +1,7 @@
 This tool ports from Qt 4 to Qt 5. Forked from https://github.com/kimocoder/Qt4to5
 
+NOTE: The porting can be done on source using cmake, not qmake/pro file! For conversion tool look here: https://www.qt.io/blog/introducing-qmake2cmake
+
 For this to work you need clang/LLVM 4. Simplest way to do that now (2025) is to get Debian Strech install.
 Get debian-9.13.0-amd64-netinst.iso from https://cdimage.debian.org/cdimage/archive/9.13.0/amd64/iso-cd/
 Install it with repository manually set to "http://archive.debian.org" when asked (as in https://www.debian.org/distrib/archive).
